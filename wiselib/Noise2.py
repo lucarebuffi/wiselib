@@ -7,7 +7,7 @@ Created on Thu Jul 07 14:08:31 2016
 
 from numpy import *
 import numpy as np
-import wise.Rayman5 as rm
+import wiselib.Rayman5 as rm
 Gauss1d =  lambda x ,y : None
 from scipy import interpolate as interpolate
 

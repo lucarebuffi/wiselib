@@ -10,9 +10,9 @@ Created on Mon Aug 08 16:41:12 2016
 from __future__ import division
 from numpy import *
 import numpy as np
-import wise.Rayman5 as rm
-from  wise.Rayman5 import Amp, Cyc
-import wise.Optics as Optics
+import wiselib.Rayman5 as rm
+from  wiselib.Rayman5 import Amp, Cyc
+import wiselib.Optics as Optics
 import multiprocessing
 import time
 

@@ -13,7 +13,7 @@ except ImportError:
 
 NAME = 'wiselib'
 
-VERSION = '1.0.0'
+VERSION = '1.0.1'
 ISRELEASED = False
 
 DESCRIPTION = 'WISE kernel library'
@@ -88,7 +88,7 @@ def git_version():
     return GIT_REVISION
 
 
-def write_version_py(filename='wise/version.py'):
+def write_version_py(filename='wiselib/version.py'):
     # Copied from numpy setup.py
     cnt = """
 # THIS FILE IS GENERATED FROM OASYS SETUP.PY
@@ -105,9 +105,9 @@ if not release:
     FULLVERSION = VERSION
     if os.path.exists('.git'):
         GIT_REVISION = git_version()
-    elif os.path.exists('wise/version.py'):
+    elif os.path.exists('wiselib/version.py'):
         # must be a source distribution, use existing version file
-        version = imp.load_source("wise.version", "wise/version.py")
+        version = imp.load_source("wiselib.version", "wiselib/version.py")
         GIT_REVISION = version.git_revision
     else:
         GIT_REVISION = "Unknown"
@@ -126,7 +126,7 @@ if not release:
 
 
 PACKAGES = [
-    "wise",
+    "wiselib",
 ]
 
 PACKAGE_DATA = {

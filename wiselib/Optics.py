@@ -7,8 +7,8 @@ Created on Mon Aug 08 16:10:57 2016
 import numpy as np
 from numpy import *
 from numpy.linalg import norm
-import wise.Noise2 as Noise
-from wise.Rayman5 import Range, FastResample1d, RotXY, _MatchArrayLengths
+import wiselib.Noise2 as Noise
+from wiselib.Rayman5 import Range, FastResample1d, RotXY, _MatchArrayLengths
 
 #==============================================================================
 # 	CLASS: GaussianSource_1d
