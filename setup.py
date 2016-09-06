@@ -88,7 +88,7 @@ def git_version():
     return GIT_REVISION
 
 
-def write_version_py(filename='srxraylib/version.py'):
+def write_version_py(filename='wise/version.py'):
     # Copied from numpy setup.py
     cnt = """
 # THIS FILE IS GENERATED FROM OASYS SETUP.PY
@@ -105,9 +105,9 @@ if not release:
     FULLVERSION = VERSION
     if os.path.exists('.git'):
         GIT_REVISION = git_version()
-    elif os.path.exists('srxraylib/version.py'):
+    elif os.path.exists('wise/version.py'):
         # must be a source distribution, use existing version file
-        version = imp.load_source("srxraylib.version", "srxraylib/version.py")
+        version = imp.load_source("wise.version", "wise/version.py")
         GIT_REVISION = version.git_revision
     else:
         GIT_REVISION = "Unknown"
@@ -126,19 +126,10 @@ if not release:
 
 
 PACKAGES = [
-    "srxraylib",
-    "srxraylib.metrology",
-    "srxraylib.sources",
-    "srxraylib.util",
-    "srxraylib.waveoptics",
-    "srxraylib.plot",
+    "wise",
 ]
 
 PACKAGE_DATA = {
-    "srxraylib.metrology": ["*.txt"],
-    "srxraylib.sources": ["data/*.*"],
-    "srxraylib.util": ["data/*.*"],
-    "srxraylib.optics": ["data/*.*"],
 }
 
 
