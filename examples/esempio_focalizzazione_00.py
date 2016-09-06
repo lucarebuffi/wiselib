@@ -151,7 +151,7 @@ if __name__ == '__main__':
     plt.xlabel('rho (mm)')
 
     # plot cicli ottici
-    plt.figure(2)
+    plt.figure(200)
     plot(Mir_s * 1e3, Cyc(Mir_E),'g')
     plt.xlabel('mm')
 
