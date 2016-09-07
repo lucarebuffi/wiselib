@@ -68,7 +68,7 @@ if __name__ == '__main__':
     	 se non funziona, si può riscrivere tutto in mm
     '''
     kbv.Roughness.NumericPsdLoadXY(PathPsd,xScaling = 1e-6,
-    											yScaling = 1e-27,																			xIsSpatialFreq = False)
+    											yScaling = 1e-27, xIsSpatialFreq = False)
     kbv.Roughness.Options.FIT_NUMERIC_DATA_WITH_POWER_LAW = False
     kbv.Options.USE_ROUGHNESS = False #<cambia qui>
 
@@ -87,6 +87,8 @@ if __name__ == '__main__':
     L1 = Det_Size
     z = kbv.f2
     NAuto = rm.SamplingCalculator(Sg.Lambda, kbv.f2, kbv.L, Det_Size, Theta0, Theta1)
+
+    print(Sg.Lambda, kbv.f2, kbv.L, Det_Size, Theta0, Theta1, NAuto)
 
     # ii) Piano specchio (Sorgente=>Specchio)
     Mir_x, Mir_y = kbv.GetXY_MeasuredMirror(NAuto,0)
@@ -109,10 +111,14 @@ if __name__ == '__main__':
     	# E1
     	E1List[i,:] = rm.HuygensIntegral_1d_MultiPool(Lambda,
     											Mir_E,Mir_x, Mir_y, Det_x, Det_y, NPools)
+
+
     	HewList[i] = rm.HalfEnergyWidth_1d(abs(E1List[i,:])**2, Step = Det_ds)
     	plt.figure()
     	plt.suptitle('DeltaZ = %0.2f' %(Defocus * 1e3))
     	plt.plot(abs(E1List[i,:])**2)
+
+    print(E1List[0,:])
 
     I1List = abs(E1List)**2
     Mir_s = rm.xy_to_s(Mir_x, Mir_y)
@@ -146,7 +152,7 @@ if __name__ == '__main__':
     #%% PLOT
 
     # E0 (Mir_E, field on the mirror)
-    plt.suptitle('|E0|: specchio ')
+    plt.figure(100)
     plot(Mir_s *1000, Amp(Mir_E),'r')
     plt.xlabel('rho (mm)')
 
@@ -165,6 +171,8 @@ if __name__ == '__main__':
     plt.xlabel('x (um)')
     #	plt.xlim(-10 , 10)
     N2 = floor(size(Mir_x)/2)
+
+    print(Det_s *1e6)
     plot(Det_s * 1e6, Amp(E1List[0,:])**2)
     #plot(Amp(E1List[0,:])**2)
 
