@@ -397,18 +397,31 @@ class Ellipse(object):
 		if self.Options.USE_ROUGHNESS == True:
 			dx = self.L/N
 			hRoughness = self.Roughness.Generate(N, dx)
+
+			########################### added by L.Rebuffi
+			if len(hRoughness) < N:
+				filler = np.zeros(N-len(hRoughness))
+				hRoughness = np.append(filler, hRoughness)
+			##############################################
+
 			myResidual = hFigErr + hRoughness
 		else:
 			myResidual = hFigErr
+
 		# proiezione del FigError sull'ellisse
 		#-----------------------------------------------------------------
 		Mir_x, Mir_y = self.GetXY_IdealMirror(N)
 		ThetaList = self._LocalTangent(Mir_x, Mir_y)
-		Mir_xx = Mir_x + hFigErr * sin(ThetaList)
-		Mir_yy = Mir_y + hFigErr * cos(ThetaList)
 
+		########################### added by L.Rebuffi
+		#Mir_xx = Mir_x + hFigErr * sin(ThetaList)
+		#Mir_yy = Mir_y + hFigErr * cos(ThetaList)
 
-		return Mir_xx, Mir_yy
+		Mir_xx = Mir_x + myResidual * sin(ThetaList)
+		Mir_yy = Mir_y + myResidual * cos(ThetaList)
+    	##############################################
+
+		return Mir_xx, Mir_yy, myResidual
 
 	#================================
 	# _AddResidualToEllipse
