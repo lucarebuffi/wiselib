@@ -10,16 +10,13 @@ Cose da sistemare
 """
 #%%
 from __future__ import division
-import sys
 import numpy as np
+#import cmath as cm
 from numpy import  cos, sin, tan, arctan, arctan2, pi, array, arange, size, polyval, polyfit, dot, exp, arcsin, arccos, real, imag
 from numpy.lib.scimath import sqrt
-import scipy as sp
-import scipy.interpolate
+
 from  scipy import ndimage
-from numpy.linalg import norm
 import multiprocessing
-import time
 
 Amp = lambda x : abs(x) / max(abs(x))
 Cyc = lambda x : real(x) / abs(x)
@@ -105,11 +102,26 @@ def FastResample1d(*args):
 
 
 
-def HalfEnergyWidth_1d(X,  UseCentreOfMass = True, Step = 1,  TotalEnergy = None):
+def HalfEnergyWidth_1d(X,  UseCentreOfMass = True, Step = 1,  TotalEnergy = None,
+						AlgorithmType = 0):
 	'''
-		Returns the Half width energy of the array X (1d)
+
+		Inputs
+		------------
+		X: 1d array
+
+		Returns
+		------------
+
+
+		the Half width energy of the array X (1d)
 		UseCentreOfMass: if False, computes the HEW respect with the maximum
 		TotalEnergy: if None, uses TotalEnergy = sum(X).
+	'''
+
+	''' Stupid remarks
+	The Hew of a Gaussian is 0.675
+
 	'''
 
 	TotalEnergy = sum(X) if TotalEnergy==None else TotalEnergy
@@ -120,26 +132,37 @@ def HalfEnergyWidth_1d(X,  UseCentreOfMass = True, Step = 1,  TotalEnergy = None
 	else:	# uses max value. May be issues if many equal values are found
 		iCentre = X.argmax()
 
-	#================================================
-	# Algoritmo binario
-	#================================================
-	RHi = np.floor(len(X)/2) ;
-	RLow = 1 ;
+	if AlgorithmType ==1:
+		#================================================
+		# Algoritmo binario
+		#================================================
+		RHi = np.floor(len(X)/2) ;
+		RLow = 1 ;
 
-	myR = int(np.floor(np.ceil(RHi + RLow)/2));
-	DeltaR = RHi-RLow ; # variabile di controllo
-	NIterations = 0 ;
-	while DeltaR > 1:
-		NIterations = NIterations + 1 ;
-		iStart = int(round(iCentre - myR))
-		iEnd = int(round(iCentre + myR))+1
-		if sum(X[iStart:iEnd]) < HalfEnergy:
-			RLow = myR;
-		else:
-			RHi = myR;
-		myR = np.ceil(RLow + RHi)/2;
-		DeltaR = RHi-RLow ;
-
+		# algoritmo intelligente, ma che non funziona
+		myR = int(np.floor(np.ceil(RHi + RLow)/2));
+		DeltaR = RHi-RLow ; # variabile di controllo
+		NIterations = 0 ;
+		while DeltaR > 1:
+			NIterations = NIterations + 1 ;
+			iStart = int(round(iCentre - myR))
+			iEnd = int(round(iCentre + myR))+1
+			if sum(X[iStart:iEnd]) < HalfEnergy:
+				RLow = myR;
+			else:
+				RHi = myR;
+			myR = np.ceil(RLow + RHi)/2;
+			DeltaR = RHi-RLow ;
+	elif AlgorithmType == 0 :
+		#================================================
+		# Algoritmo stupido
+		#================================================
+		myEnergy = 0
+		iR = 1
+		while myEnergy < HalfEnergy:
+			myEnergy = sum(X[iCentre - iR : iCentre + iR])
+			iR = iR + 1
+		myR = iR
 	Diameter = 2*myR ;
 	return Diameter * Step
 
@@ -179,7 +202,8 @@ def v2xy(v):
 # 	RMat
 #______________________________________________________________________________
 def RMat(Theta):
-	return [[cos(Theta), -sin(Theta)], [sin(Theta), cos(Theta)]]
+	return [[cos(Theta), -sin(Theta)],
+				[sin(Theta), cos(Theta)]]
 
 #______________________________________________________________________________
 # 	RMat
@@ -197,6 +221,14 @@ def XY_to_L(x,y):
 	return L
 
 def xy_to_s(x,y):
+	'''
+	For two arrays x,y computes the array of displacements s defined as
+				s_i = sqrt( dx_i^2 + dy_i^2)
+	where
+				dx_i = x_i - x_(i-1)   and similarly for dy_i
+	Essentially, s is the proper coordinate axis of the curve described by x,y.
+	'''
+
 	N2 = int(np.floor(len(x)/2))
 	s0 = len(x)/2
 	Steps = np.sqrt(np.diff(x)**2 + np.diff(y)**2)
@@ -228,6 +260,7 @@ def RotXY(x,y, Theta = 0, Origin = np.array([0,0])):
 	Vxy = np.column_stack((x,y))
 	U  = dot(Vxy - Origin, RMat(Theta)) + Origin
 	return (U[:,0], U[:,1])
+
 #______________________________________________________________________________
 # 	Range
 #______________________________________________________________________________

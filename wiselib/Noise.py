@@ -5,13 +5,20 @@ Created on Thu Jul 07 14:08:31 2016
 @author: Mic
 """
 
-from numpy import *
+from wiselib.must import *
 import numpy as np
-import wiselib.Rayman5 as rm
+import wiselib.Rayman as rm
 Gauss1d =  lambda x ,y : None
 from scipy import interpolate as interpolate
 
 class PsdFuns:
+	'''
+	Ensemble of possible Psd Functions.
+	Each element is a callable Psd.
+	Most used are
+		PsdFuns.PowerLaw(x,a,b)
+		PsdFuns.Interp(x, xData, yData)
+	'''
 	@staticmethod
 	def Flat(x, *args):
 		N = len(x)
@@ -36,43 +43,56 @@ def PsdFun2Noise_1d(N,dx, PsdFun, PsdArgs):
 	'''
 	x = np.arange(0,N//2+1, dx)
 	yHalf = PsdFun(x, *PsdArgs)
-	y = Psd2Noise_1d(yHalf, Semiaxis = True 	)
+	y = Psd2NoisePattern_1d(yHalf, Semiaxis = True 	)
 	return  x,y
-
 
 
 #============================================================================
 #	FUN: 	Psd2Noise
 #============================================================================
-def Psd2Noise_1d(Psd, Semiaxis = True, Real = True):
+def PsdArray2Noise_1d(PsdArray, N, Semiaxis = True, Real = True):
 	'''
 	Generates a noise pattern whose Power Spectral density is given by Psd.
 
-	Parameters:
-		Psd: 1darr
-		Semiaxis:
-			0: does nothing
-			1: halven Pds, then replicate the halven part for left frequencies,
-				producing an output as long as
-			2: replicates all Pds for lef frequencies as well, producing an output
-				twice as long as Psd
-		Real: if True, the real part of the output is returned
+	Parameters
+	---------------------
+	Psd :  1d array
+		Contains the numeric Psd (treated as evenly spaced array)
+
+	Semiaxis :
+		0 : does nothing
+		1 : halvens Pds, then replicates the halven part for left frequencies,
+			producing an output as long as Psd
+		2 : replicates all Pds for lef frequencies as well, producing an output
+			twice as long as Psd
+	Real : boolean
+		If True, the real part of the output is returned (default)
+
 	Returns:
-		arr of the same length of Psd
+	---------------------
+		An array of the same length of Psd
 	'''
 
 	if Semiaxis == True:
-		yHalf = Psd
-		Psd = np.hstack((yHalf[-1:0:-1], 0, yHalf[1:-1]))
-	y = np.fft.fftshift(Psd)
-	r = 2*pi * np.random.rand(len(Psd))
+		yHalf = PsdArray
+		PsdArrayNew = np.hstack((yHalf[-1:0:-1], yHalf))
+		idelta = len(PsdArrayNew) - N
+		if idelta == 1:# piu lungo
+			PsdArrayNew = PsdArrayNew[0:-1] # uguale
+		elif idelta == 0:
+			pass
+		else:
+			print('Error!  len(PsdArrayNew) - len(PsdArray) = %0d' % idelta)
+	y = np.fft.fftshift(PsdArrayNew)
+	r = 2*pi * np.random.rand(len(PsdArrayNew))
+
 	f = np.fft.ifft(y * exp(1j*r))
 
 	if Real:
 		return real(f)
 	else:
 		return f
-
+Psd2Noise_1d = PsdArray2Noise_1d
 #============================================================================
 #	FUN: 	NoNoise_1d
 #============================================================================
@@ -88,7 +108,7 @@ def GaussianNoise_1d(N,dx, Sigma):
 	'''
 	x = np.linspace( - N//2 *dx, N//2-1 * dx,N)
 	y = exp(-0.5*x**2/Sigma**2)
-	return Psd2Noise_1d(y)
+	return Psd2NoisePattern_1d(y)
 
 
 #============================================================================
@@ -100,15 +120,15 @@ def PowerLawNoise_1d(N, dx, a, b):
 	'''
 	x = np.arange(0,N//2+1, dx)
 	yHalf = a * x**b
-	y = np.hstack((yHalf[-1:0:-1], 0, yHalf[1:-1]))
-	return Psd2Noise_1d(y, Semiaxis = True)
+#	y = np.hstack((yHalf[-1:0:-1], 0, yHalf[1:-1]))
+	return Psd2NoisePattern_1d(y, Semiaxis = True)
 
 #============================================================================
 #	FUN: 	CustomNoise_1d
 #============================================================================
 def CustomNoise_1d(N, dx, xPsd, yPsd):
 	xPsd_, yPsd_ = rm.FastResample1d(xPsd, yPsd,N)
-	return Psd2Noise_1d(yPsd_, Semiaxis = True)
+	return Psd2NoisePattern_1d(yPsd_, Semiaxis = True)
 
 #============================================================================
 #	CLASS: 	NoiseGenerator
@@ -125,12 +145,17 @@ class PsdGenerator:
 #	FUN: 	FitPowerLaw
 #============================================================================
 def FitPowerLaw(x,y):
+	'''
+	Fits the input data in the form
+		y = a*x^b
+	returns a,b
+	'''
 	import scipy.optimize as optimize
 
 	fFit = lambda p, x: p[0] * x ** p[1]
 	fErr = lambda p, x, y: (y - fFit(p, x))
 
-	p0 = [11.0, 1.0]
+	p0 = [max(y), -1.0]
 	out = optimize.leastsq(fErr, p0, args=(x, y), full_output=1)
 
 	pOut = out[0]
@@ -144,7 +169,7 @@ def FitPowerLaw(x,y):
 	return a,b
 
 #==============================================================================
-# 	CLASS: Roughness
+# 	CLASS: RoughnessMaker
 #==============================================================================
 
 class RoughnessMaker(object):
@@ -180,17 +205,25 @@ class RoughnessMaker(object):
 	#======================================================================
 	def PsdEval(self, N, df, CutoffLowHigh = [None, None]):
 		'''
-		Evals the PSD in the range [0 - N*dx]
+		Evals the PSD in the range [0 - N*df]
 		It's good custom to have PSD[0] = 0, so that the noise pattern is
 		zero-mean.
+
 		Parameters:
-			N: #of samples
-			df: spacing of spatial frequencies
-			LowCutoff: if >0, then Psd(f<Cutoff) is set to 0.
+		----------------------
+			N : int
+				#of samples
+			df : float
+				spacing of spatial frequencies (df=1/TotalLength)
+			CutoffLowHigh : [LowCutoff, HighCutoff]
+				if >0, then Psd(f<Cutoff) is set to 0.
 						if None, then LowCutoff = min()
-		Returns:
-			x : arr (spatial frequencies)
-			yPsd:arr (Psd)
+		Returns :  fAll, yPsdAll
+		----------------------
+			fAll : 1d array
+				contains the spatial frequencies
+			yPsd : 1d array
+				contains the Psd
 		'''
 
 		'''
@@ -198,6 +231,7 @@ class RoughnessMaker(object):
 		If the Pdf is PsdFuns.Interp, then LowCutoff and HighCutoff are
 		automatically set to min and max values of the experimental data
 		'''
+		StrMessage = ''
 		def GetInRange(fAll, LowCutoff, HighCutoff):
 			_tmpa  = fAll >= LowCutoff
 			_tmpb = fAll <= HighCutoff
@@ -206,8 +240,10 @@ class RoughnessMaker(object):
 			return fMid_Pos, fMid
 
 		LowCutoff, HighCutoff = CutoffLowHigh
-		fAll = np.linspace(0, N*df, N)
-		yPsdAll = fAll* 0
+		fMin = 0
+		fMax = (N-1)*df
+		fAll = np.linspace(0, fMax, N)
+		yPsdAll = fAll* 0 # init
 
 		LowCutoff = 0 if LowCutoff == None else LowCutoff
 		HighCutoff = N*df if HighCutoff == None else HighCutoff
@@ -230,11 +266,18 @@ class RoughnessMaker(object):
 			else:
 				# check Cutoff
 				LowVal =  np.amin(self._PsdNumericX)
-				HighVal = np.amin(self._PsdNumericX)
+				HighVal = np.amax(self._PsdNumericX)
 				LowCutoff = LowVal if LowCutoff <= LowVal else LowCutoff
 				HighCutoff = HighVal if HighCutoff >= HighVal else HighCutoff
+
+
+				# Get the list of good frequency values (fMid) and their positions
+				# (fMid_Pos)
 				fMid_Pos, fMid = GetInRange(fAll, LowCutoff, HighCutoff)
-				yPsd = self.PsdType(fMid, *self.PsdParams)
+
+				##yPsd = self.PsdType(fMid, *self.PsdParams)
+				## non funziona, rimpiazzo a mano
+				yPsd =  PsdFuns.Interp(fMid, self._PsdNumericX, self._PsdNumericY)
 
 		# Analytical Psd
 		else:
@@ -262,21 +305,22 @@ class RoughnessMaker(object):
 	#======================================================================
 	# 	FUN: MakeProfile
 	#======================================================================
-	def MakeProfile(self,N ,df):
+	def MakeProfile(self, N ,df):
 		'''
 			Evaluates the psd according to .PsdType, .PsdParams and .Options directives
 			Returns an evenly-spaced array.
 			If PsdType = NumericArray, linear interpolation is performed.
 
-			parameters:
-				N: # of samples
-				dx: spacing
+			:PARAM: N: # of samples
+			:PARAM: dx: grid spacing (spatial frequency)
+
 			returns:
 				1d arr
 		'''
 
 #		x = np.linspace(0, (N//2 +1) *dx,(N//2 +1))
-		f, yPsd = self.PdfEval(N,df)
+		f, yPsd = self.PsdEval(N//2 + 1,df)
+
 
 		# Special case
 #		if self.Options.FIT_NUMERIC_DATA_WITH_POWER_LAW == True:
@@ -285,7 +329,7 @@ class RoughnessMaker(object):
 #		else: # general calse
 #			yPsd = self.PsdType(x, *self.PsdParams)
 
-		yRoughness  = Psd2Noise_1d(yPsd, Semiaxis = True)
+		yRoughness  = Psd2Noise_1d(yPsd, N, Semiaxis = True)
 		return yRoughness
 
 #		x = np.linspace(0, N*dx,N)
@@ -296,61 +340,111 @@ class RoughnessMaker(object):
 #		else: # general calse
 #			y = self.PsdType(N,dx, *self.PsdParams)
 #		return y
-
+	Generate = MakeProfile
+	#======================================================================
+	# 	FUN: NumericPsdSetXY
+	#======================================================================
 	def NumericPsdSetXY(self,x,y):
 		self._PsdNumericX = x
-		if self.Options.AUTO_ZERO_MEAN_FOR_NUMERIC_DATA == True:
-			y = y - np.mean(y)
 		self._PsdNumericY = y
+
+
+	#======================================================================
+	# 	FUN: NumericPsdGetXY
+	#======================================================================
 
 	def NumericPsdGetXY(self):
 		return self._PsdNumericX, self._PsdNumericY
+
+	#======================================================================
+	# 	FUN: NumericPsdLoadXY
+	#======================================================================
 	def NumericPsdLoadXY(self, FilePath, xScaling = 1, yScaling = 1 , xIsSpatialFreq = False):
 		''' @TODO: specificare formati e tipi di file
+
+		:param xIsSpatialFreq: true If the first column (Read_x_values) contains spatial frequencies. False if it contains lenghts
 		'''
-		self._IsNumericPsdInFreq = xIsSpatialFreq
-		s = np.loadtxt(FilePath)
-		x = s[:,0]
-		y = s[:,1]
-		# array sorting
-		i = np.argsort(x)
-		x = x[i]
-		y = y[i]
 
-		x = x * xScaling
-		y = y * yScaling
-		# inversion of x-axis if not spatial frequencies
-		if xIsSpatialFreq == False:
-			x = 1/x
+		try:
+			self._IsNumericPsdInFreq = xIsSpatialFreq
 
-		self.PsdCutoffLowHigh = [np.amin, np.amax(x)]
-		self.PsdType = PsdFuns.Interp
-		self.PsdParams = [x,y]
+			s = np.loadtxt(FilePath)
+			x = s[:,0]
+			y = s[:,1]
+
+			x = x * xScaling
+			y = y * yScaling
+
+			# inversion of x-axis if not spatial frequencies
+			if xIsSpatialFreq == False:
+				f = 1/x
+			else:
+				f = x
+			# array sorting
+			i = np.argsort(f)
+			f = f[i]
+			y = y[i]
+			# I set the Cutoff value of the class according to available data
+			self.PsdCutoffLowHigh = [np.amin, np.amax(f)]
+
+			# I set class operating variables
+			self.PsdType = PsdFuns.Interp
+			self.PsdParams = [f,y]
 
 
-		# Auto-set
-		# fill 0-value (DC Component)
-#		if self.Options.AUTO_FILL_NUMERIC_DATA_WITH_ZERO == True:
-#			if np.amin(x >0):
-#				x = np.insert(x,0,0)
-#				y = np.insert(y,0,0)	# 0 in psd => 0-mean value in the noise pattern
+			# Auto-set
+			# fill 0-value (DC Component)
+	#		if self.Options.AUTO_FILL_NUMERIC_DATA_WITH_ZERO == True:
+	#			if np.amin(x >0):
+	#				x = np.insert(x,0,0)
+	#				y = np.insert(y,0,0)	# 0 in psd => 0-mean value in the noise pattern
 
 
-		# sync other class values
-		self.NumericPsdSetXY(x, y)
+			# sync other class values
+			self.NumericPsdSetXY(f, y)
+		except:
+			pass
 
-	def Generate(self, N = None, dx = None, CutoffLowHigh = [None, None]):
-		'''
-		Parameters
-			N: # of output samples
-			dx: step of the x axis
-		Note: generates an evenly spaced array
-		'''
-		L = dx * N
+		def Generate(self, N = None, dx = None, CutoffLowHigh = [None, None]):
+			'''
+			Parameters
+				N: # of output samples
+				dx: step of the x axis
+			Note: generates an evenly spaced array
+			'''
+			L = dx * N
+			df = 1/L
+			fPsd, yPsd = self.PsdEval(N//2 +1  , df = df,
+											CutoffLowHigh = CutoffLowHigh )
+			h = Psd2Noise_1d(yPsd, Semiaxis = True)
+
+			return  h
+
+	#======================================================================
+	# 	FUN: NumericPsdCheck
+	#======================================================================
+	def NumericPsdCheck(self, N, L):
+
 		df = 1/L
-		fPsd, yPsd = self.PsdEval(N//2 +1  , df = df,
-										CutoffLowHigh = CutoffLowHigh )
-		h = Psd2Noise_1d(yPsd, Semiaxis = True)
+		# Stored data
+		ff,yy = self.NumericPsdGetXY()
+		# Evaluated data
+		fPsd, yPsd = self.PsdEval(N, df)
 
-		return  h
 
+		plot(fPsd, np.log10(yPsd),'x')
+		plot(ff, np.log10(yy),'.r')
+		plt.legend(['Evaluated data', 'Stored data'])
+		plt.suptitle('Usage of stored data (PSD)')
+
+		fMax = df*(N//2)
+		fMin = df
+		StrMsg = ''
+		_max = np.max(ff)
+		_min = np.min(ff)
+		print('fMax  query = %0.1e m^-1' % fMax )
+		print('fMax data= %0.1e m^-1 = %0.2e um^-1' % (_max, (_max * 1e6) ))
+		print('fMin query= %0.1e m^-1' % fMin )
+		print('fMin data= %0.1e m^-1 = %0.2e um^-1' % (_min, (_min * 1e6) ))
+
+		return StrMsg
