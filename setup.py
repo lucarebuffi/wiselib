@@ -13,7 +13,7 @@ except ImportError:
 
 NAME = 'wiselib'
 
-VERSION = '1.0.2'
+VERSION = '1.0.3'
 ISRELEASED = False
 
 DESCRIPTION = 'WISE kernel library'
