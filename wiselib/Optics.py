@@ -435,7 +435,7 @@ class Ellipse(object):
     # GetXY_MeasuredMirror
     #================================
     
-    def GetXY_MeasuredMirror(self,N, iFigureError = 0, GenerateRoughness = False ):
+    def GetXY_MeasuredMirror(self, N, iFigureError = 0, GenerateRoughness = False ):
         # carico il figure error e, se necessario, lo ricampiono
         #-----------------------------------------------------------------
         if len(self._FigureErrors)-1 >= iFigureError:
@@ -449,8 +449,7 @@ class Ellipse(object):
         #-----------------------------------------------------------------
         
         if self.Options.USE_ROUGHNESS == True:
-            df = 1/self.L
-            hRoughness = self.Roughness.MakeProfile(N, df)
+            hRoughness = self.Roughness.MakeProfile(self.L, N)
             
             ########################### added by L.Rebuffi
             if len(hRoughness) < N:
@@ -588,15 +587,10 @@ class Ellipse(object):
 
         m1 = tan(Theta1) ;
 
-
         q = yEll - m1 * xEll ;
 
         p = [m1,q] ;
         p1 = p ;            # il raggio (1) (entrante)
-
-        xList2 = Range(-2*a,xEll,0.001) ;
-        yList2 = polyval(p, xList2) ;
-
 
         # raggio di partenza (1) ;
 
@@ -604,11 +598,6 @@ class Ellipse(object):
 
         p = [m2,q] ;
         p2 = p ;         # il raggio (2) uscente
-        xList1 = Range(xEll, 2*a, 0.001)
-        yList1 = polyval(p, xList1) ;
-
-        xList = [xList1, xList2] ;
-        yList = [yList1, yList2] ;
 
         return p2, p1
     #================================

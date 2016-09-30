@@ -4,7 +4,7 @@ Created on Thu Jul 07 14:08:31 2016
 
 @author: Mic
 """
-
+from __future__ import division
 from wiselib.must import *
 import numpy as np
 import wiselib.Rayman as rm
@@ -46,6 +46,87 @@ def PsdFun2Noise_1d(N,dx, PsdFun, PsdArgs):
 	y = Psd2NoisePattern_1d(yHalf, Semiaxis = True 	)
 	return  x,y
 
+
+#============================================================================
+#	FUN: 	PsdArray2Noise_1d_v2
+#============================================================================
+def PsdArray2Noise_1d_v2(f_in, Psd_in, L_mm,N):
+	'''
+		Returns meters
+	'''
+	from scipy import interpolate
+	log=np.log
+	fft = np.fft.fft
+	fftshift = np.fft.fftshift
+
+	ff = f_in
+	yy = Psd_in
+	L = L_mm
+	N = int(N)
+	N2 = int(N//2)
+	L =300 # (mm)
+	L_um = L*1e3
+	L_nm = L*1e6
+
+	fMin = 1/L_um
+
+	##vecchia riga
+	##fSpline = (np.array(range(N2))+1)/L_um # um^-1
+	fSpline = arange(N2)/N2 * (max(ff) - min(ff)) + min(ff)
+
+	fun = interpolate.splrep(log(ff), log(yy), s=2)
+	yPsd_log = interpolate.splev(log(fSpline), fun)
+	ySpline = exp(yPsd_log)
+	yPsd = ySpline
+
+	# tolgo
+	yPsd[fSpline<ff[0]] = 200
+	n = len(yPsd)
+
+
+	plot(fSpline, yPsd,'-')
+	plot(ff, yy,'x')
+	plt.legend(['ySpline','Data'])
+	ax = plt.axes()
+	#ax.set_yscale('log')
+	#ax.set_xscale('log')
+
+	#% controllo RMS integrando la yPsd
+	import scipy.integrate as integrate
+
+	RMS = sqrt(integrate.trapz(yPsd, fSpline/1000))
+
+	#%  Modo Manfredda style
+
+	#yPsdNorm = sqrt(yPsd/L_um/1000)
+	#yPsdNorm_reverse = yPsdNorm[::-1]
+	yPsd_reverse = yPsd[::-1]
+	ell= 1/(fSpline[1] - fSpline[0])
+
+	if N%2 == 0:
+		yPsd2 = np.hstack((yPsd_reverse ,0,yPsd[0:-1]))
+	else:
+		yPsd2 = np.hstack((yPsd_reverse ,0,yPsd))
+	##yPsd2Norm = sqrt(yPsd2/ell/1000/2)
+	yPsd2Norm = sqrt(yPsd2/ell/1000)
+	n_ = len(yPsd2)
+	print('len(yPsd2) = %0.2d' % len(yPsd2Norm))
+	phi = 2*pi * np.random.rand(n_)
+	r = exp(1j*phi)
+
+	yPsd2Norm_ = fftshift(yPsd2Norm)
+	#yPsd2Norm_[len(yPsd2Norm_)//2] = 0
+
+	yRaf = np.fft.fft(r*yPsd2Norm_)
+	yRaf = real(yRaf)
+	print('Rms = %0.2e nm' % np.std(yRaf))
+
+	plot(yPsd2Norm_)
+
+	print('max yPsd_ = %d nm' % max(yPsd2))
+	print('max yPsd2Norm = %0.4f nm' % max(yPsd2Norm))
+	print('Rms yRaf2 = %0.2e nm' % np.std(yRaf))
+	return yRaf * 1e-9
 
 #============================================================================
 #	FUN: 	Psd2Noise
@@ -185,6 +266,7 @@ class RoughnessMaker(object):
 		self.PsdParams = np.array([1,1])
 		self._IsNumericPsdInFreq = None
 		self.CutoffLowHigh = [None, None]
+		self.ProfileScaling = 1
 		return None
 
 	@property
@@ -302,10 +384,11 @@ class RoughnessMaker(object):
 			p = FitPowerLaw(x,y)
 			self.PsdParams = p[0], p[1]
 
+
 	#======================================================================
 	# 	FUN: MakeProfile
 	#======================================================================
-	def MakeProfile(self, N ,df):
+	def MakeProfile(self, L,N):
 		'''
 			Evaluates the psd according to .PsdType, .PsdParams and .Options directives
 			Returns an evenly-spaced array.
@@ -318,8 +401,15 @@ class RoughnessMaker(object):
 				1d arr
 		'''
 
-#		x = np.linspace(0, (N//2 +1) *dx,(N//2 +1))
-		f, yPsd = self.PsdEval(N//2 + 1,df)
+
+		if self.PsdType == PsdFuns.Interp:
+			# chiama codice ad hoc
+			L_mm = L*1e3
+			yRoughness = PsdArray2Noise_1d_v2(self._PsdNumericX, self._PsdNumericY, L_mm, N)
+		else:
+			print('Irreversible error. The code was not completed to handle this instance')
+		return yRoughness * self.ProfileScaling
+#		f, yPsd = self.PsdEval(N//2 + 1,df)
 
 
 		# Special case
@@ -329,8 +419,8 @@ class RoughnessMaker(object):
 #		else: # general calse
 #			yPsd = self.PsdType(x, *self.PsdParams)
 
-		yRoughness  = Psd2Noise_1d(yPsd, N, Semiaxis = True)
-		return yRoughness
+#		yRoughness  = Psd2Noise_1d(yPsd, N, Semiaxis = True)
+
 
 #		x = np.linspace(0, N*dx,N)
 #		# Special case
@@ -354,15 +444,32 @@ class RoughnessMaker(object):
 	#======================================================================
 
 	def NumericPsdGetXY(self):
-		return self._PsdNumericX, self._PsdNumericY
-
+		try:
+			return self._PsdNumericX, self._PsdNumericY
+		except:
+			print('Error in RoughnessMaker.NumericPsdGetXY. Maybe the data file was not properly loaded')
 	#======================================================================
 	# 	FUN: NumericPsdLoadXY
 	#======================================================================
-	def NumericPsdLoadXY(self, FilePath, xScaling = 1, yScaling = 1 , xIsSpatialFreq = False):
+	def NumericPsdLoadXY(self, FilePath, xScaling = 1, yScaling = 1 , xIsSpatialFreq = True):
 		''' @TODO: specificare formati e tipi di file
 
-		:param xIsSpatialFreq: true If the first column (Read_x_values) contains spatial frequencies. False if it contains lenghts
+		Parameters
+		----------------------------
+		xIsSpatialFreq : bool
+						true If the first column (Read_x_values) contains spatial
+						frequencies. False if it contains lenghts. Default = True
+		xScaling, yScaling: floats
+						Read_x_values => Read_x_values * xScaling
+
+						Read_y_values => Read_y_values * yScaling
+
+						Sometimes, properly setting the x and y scaling values may be confusing (although just matter of high-school considerations). On this purpose, the property .RoughnessMaker.ProfileScaling property can be used also..ProfileScaling is the scale factor that acts on the output of MakeProfile() function only.
+
+		remarks
+						--------
+						pippo
+
 		'''
 
 		try:
