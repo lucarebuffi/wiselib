@@ -15,4 +15,3 @@ wiselib is pip installable (https://pip.pypa.io/), simply run::
 
 to install it.
 
-CIAO
