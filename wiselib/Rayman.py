@@ -334,6 +334,9 @@ def HuygensIntegral_1d_Kernel(Lambda, Ea, xa, ya, xb, yb, bStart = None, bEnd=No
 		bEnd = np.size(xb)
 		bStart = 0
 
+	bEnd = int(bEnd)
+	bStart = int(bStart)
+
 	EbTokN = bEnd - bStart
 	EbTok = 1j*np.zeros(EbTokN)
 
@@ -376,7 +379,7 @@ def _wrapper_HuygensIntegral_1d_Kernel(parameters):
 #==============================================================================
 def _wrapper_args_HuygensIntegral_1d_Kernel(Lambda, Ea, xa, ya, xb, yb, NPools):
 	N = np.size(xb)
-	r = np.linspace(0,N, NPools+1) ; r = np.array([np.floor(ri) for ri in r]) ;
+	r = np.linspace(0, N, int(NPools)+1) ; r = np.array([np.floor(ri) for ri in r]) ;
 	#args_StartStop = list(zip([x for x in r], r[1:]))
 	args_StartStop = list(zip(r[0:], r[1:]))
 	#args_StartStop  = (len(r)-1) * [(r[0], r[1])] # toglier
@@ -388,7 +391,7 @@ def _wrapper_args_HuygensIntegral_1d_Kernel(Lambda, Ea, xa, ya, xb, yb, NPools):
 #==============================================================================
 def HuygensIntegral_1d_MultiPool(Lambda, Ea, xa, ya, xb, yb, NPools = 0):
 
-	(xa , ya) = _MatchArrayLengths(xa,ya)
+	(xa, ya) = _MatchArrayLengths(xa,ya)
 	(xb, yb) = _MatchArrayLengths(xb,yb)
 
 	if NPools > 0:
