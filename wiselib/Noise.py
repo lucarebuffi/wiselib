@@ -509,8 +509,8 @@ class RoughnessMaker(object):
 
 			# sync other class values
 			self.NumericPsdSetXY(f, y)
-		except:
-			pass
+		except Exception as e:
+			raise e
 
 		def Generate(self, N = None, dx = None, CutoffLowHigh = [None, None]):
 			'''
